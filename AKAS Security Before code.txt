@@ -1,0 +1,316 @@
+CA_DatableClass-------------------->
+
+/*
+* @author : Urvashi Barapatre | APJ Call Automation FOR JAPAN
+* Class Name: CA_DatableClass
+* Created Date : 22-02-2022
+* Description: This class used in CA_PositiveDatable,CA_NegativeDatable components.
+* Copyright (c) 2021 Johnson & Johnson
+*/
+
+public with sharing class CA_DatableClass 
+{
+    /**
+* @param users: List of users
+* @description gets vcode of users
+* @return set of vcodes
+*/
+    public static Set<String> getVcodes(List<User> users)
+    {
+        Set<String> vcodes = new Set<String>();
+        for (User usr : users)
+        {
+            if (!String.isBlank(usr.User_VCode__c))
+            {
+                vcodes.add(usr.User_VCode__c + '%');
+            }else{
+                vcodes.add(usr.User_VCode__c);
+            }
+        }
+        return vcodes;
+    }
+    
+/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: list of Positive target type account in Positive datatable
+*/
+    @AuraEnabled
+    public static List<Call_Plan_Data__c> getCallPlannerRec() 
+    {
+        List<Recommendation_Setting__mdt> rs = RecommendationSettingSelector_CA.newInstance().selectByName(RecommendationUtils_CA.JAPAN_NBA_NAME);
+        List<User> users = new List<User>(UsersSelector_CA.newInstance().selectByLoggedInUser());
+        Set<String> vcodes = getVcodes(users);
+        string division = string.valueOF(users[0].User_Division__c);
+        
+        List<Call_Plan_Data__c> cls =new List<Call_Plan_Data__c>();
+        if(!vcodes.IsEmpty() )
+        {
+            cls= CallPlanDataSelector_CA.newInstance().getCallPlannerRecSelect(vcodes,users[0].User_Division__c,rs[0].CA_Has_Sales_Positive__c);
+        }
+        return cls;
+    } 
+    /*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: list of Negative target type account in Negative datatable
+*/
+    @AuraEnabled
+    public static List<Call_Plan_Data__c> getCallPlannerNegativeRec()
+    {   
+        List<Recommendation_Setting__mdt> rs = RecommendationSettingSelector_CA.newInstance().selectByName(RecommendationUtils_CA.JAPAN_NBA_NAME);
+        List<User> users = new List<User>(UsersSelector_CA.newInstance().selectByLoggedInUser());
+        Set<String> vcodes = RecommendationUtils_CA.getVcodes(users);
+        string division = string.valueOF(users[0].User_Division__c);
+        
+        List<Call_Plan_Data__c> cls =new List<Call_Plan_Data__c>();
+        if(!vcodes.IsEmpty() )
+        {
+            cls= CallPlanDataSelector_CA.newInstance().getCallPlannerNegSelectRec(vcodes,users[0].User_Division__c,rs[0].CA_Has_Sales_Negative__c);
+        }
+        return cls;
+    } 
+
+/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: Event Type Picklist values in Event popup for Positive/Negative datatable
+*/
+    @AuraEnabled 
+    public static Map<String, String> getEventtypeFieldValue()
+    {
+        Map<String, String> options = new Map<String, String>();
+        Schema.DescribeFieldResult fieldResult = Call_Plan_Data__c.Event_Type_JP__c.getDescribe();
+        List<Schema.PicklistEntry> pValues = fieldResult.getPicklistValues();
+        for (Schema.PicklistEntry p: pValues)
+        {
+            options.put(p.getValue(), p.getLabel());
+        }
+        return options;
+    }
+/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: inserted Events in JNJ custom calendar
+*/
+    @AuraEnabled
+    public static event insertEvt(string callPlanRec,string eventsub, datetime strtdate, datetime enddate,String eventtype,String topics) 
+    {  
+        fflib_ISObjectUnitOfWork uow = new fflib_SObjectUnitOfWork(
+            new List<Schema.SObjectType>
+            {
+                Event.sObjectType,
+                Call_Plan_Data__c.sObjectType
+                    }
+        );
+        List<Recommendation_Setting__mdt> rs = RecommendationSettingSelector_CA.newInstance().selectByName(RecommendationUtils_CA.JAPAN_NBA_NAME);
+        Id recordTypeId = Schema.SObjectType.Event.getRecordTypeInfosByDeveloperName().get('JAPN_Cataract').getRecordTypeId();
+        Call_Plan_Data__c rec = (Call_Plan_Data__c)System.JSON.deserialize(callPlanRec, Call_Plan_Data__c.class);
+        Event eventRec =  NEw Event();
+        eventRec.WhatId = rec.AccountId__c;
+        eventRec.WhoId = rec.Doctor_Name__c;
+        eventRec.Subject = eventsub;
+        eventRec.StartDateTime =strtdate;
+        eventRec.EndDateTime =enddate;
+        eventRec.Event_Type__c =eventtype;
+        eventRec.Other_Topics_Covered__c =topics;
+        eventRec.region__c =rs[0].Event_Region__c;
+        eventRec.Country__c =rs[0].CA_Country__c;
+        eventRec.Call_Planning_Flag__c =rs[0].CA_Call_Planning_Flag__c;
+        eventRec.RecordtypeId= recordTypeId;
+        uow.registerNew(eventRec);
+        try
+        {
+            uow.commitWork();
+        }catch(exception e)
+        {
+            throw e;
+        }
+         return eventRec;
+    }
+/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: Other Topics covered Multiselect Picklist in Event popup for Positive/Negative datatable
+*/
+    @AuraEnabled
+    public static List <String> getPiklistValues() 
+    {
+        List<String> plValues = new List<String>();
+        Schema.SObjectType objType = Schema.getGlobalDescribe().get('Call_Plan_Data__c');
+        Schema.DescribeSObjectResult objDescribe = objType.getDescribe();
+        Schema.DescribeFieldResult objFieldInfo = objDescribe.fields.getMap().get('Other_Topics_Covered_JP__c').getDescribe();
+        
+        List<Schema.PicklistEntry> picklistvalues = objFieldInfo.getPicklistValues();
+        
+        for(Schema.PicklistEntry plv: picklistvalues) 
+        {
+            plValues.add(plv.getValue());
+        }
+        plValues.sort();
+        return plValues;
+    }
+}
+**********************************************************
+UsersSelector_CA-------------->
+
+/**
+* @author : Urvashi Barapatre | APJ Call Automation FOR JAPAN
+* @description: User Selector Class for Querying user object
+* @date: 24-01-2022
+* Copyright (c) $2022 Johnson & Johnson
+*/
+public with sharing class UsersSelector_CA extends fflib_SObjectSelector
+{
+    public static UsersSelector_CA newInstance()
+    {
+        return (UsersSelector_CA) Application_CA.Selector.newInstance(User.SObjectType);
+    }
+    public Schema.SObjectType getSObjectType()
+    {
+        return User.sObjectType;
+    }
+    
+    /**
+* getSObjectFieldList
+* @description Holds a list of fields to be returned by all selector methods
+* @return Returns list of default User fields
+*/
+    public List<Schema.SObjectField> getSObjectFieldList()
+    {
+        return new List<Schema.SObjectField>
+        {
+            User.Id,	
+                User.User_VCode__c,
+                User.User_Division__c,
+                User.Profile.Name 
+                };
+                    }
+    
+    /**
+* selectById
+* @description Query User records by Id
+* @param Set of userId
+* @return Returns a list of User records
+*/
+    public List<User> selectById(Set<Id> idSet)
+    {
+        return (List<User>) selectSObjectsById(idSet);
+    }
+    
+    /**
+* selectByLoggedInUser
+* @description Query User records by Id
+* @return Returns a list of User records
+*/
+    public List<User> selectByLoggedInUser()
+    {
+        Id userId = Userinfo.getUserId();
+        fflib_QueryFactory aQF = newQueryFactory().setCondition('(User_VCode__c !=null OR User_Division__c!=null) AND Id =: userId');
+        return ( List<User>) Database.query(aQF.toSOQL());
+    }
+}
+**************************************************
+CallPlanDataSelector_CA--------------------------->
+
+/**
+* @author : Urvashi Barapatre | APJ Call Automation FOR JAPAN
+* @description Call Plan Data selector class
+* @date : 22-02-2022
+* Copyright (c) $2022 Johnson & Johnson
+*/
+public with sharing class CallPlanDataSelector_CA  extends fflib_SObjectSelector
+{
+    
+    public static CallPlanDataSelector_CA newInstance()
+    {
+        return (CallPlanDataSelector_CA) Application_CA.Selector.newInstance(Call_Plan_Data__c.SObjectType);
+    }
+    
+    public SObjectType getSObjectType()
+    {
+        return Call_Plan_Data__c.SObjectType;
+    }
+    
+    public List<Schema.SObjectField> getSObjectFieldList()
+    {
+        return new List<Schema.SObjectField>
+        {
+            Call_Plan_Data__c.Last_Call_Date__c,
+                Call_Plan_Data__c.User_Division__c,
+                Call_Plan_Data__c.TM_Manager1__c,
+                Call_Plan_Data__c.TM_Manager2__c,
+                Call_Plan_Data__c.TM_Manager3__c,
+                Call_Plan_Data__c.TM_Manager4__c,
+                Call_Plan_Data__c.Call_Target_Meet__c,
+                Call_Plan_Data__c.Target_month_Sales_plan_unit__c,
+                Call_Plan_Data__c.Trim_Data__c,
+                Call_Plan_Data__c.Sales_Diff_Negative__c,
+                Call_Plan_Data__c.Has_Sales_every_Month__c,
+                Call_Plan_Data__c.Last_Call_Date_Formula__c,
+                Call_Plan_Data__c.Priority__c,
+                Call_Plan_Data__c.Account_Name__c,
+                Call_Plan_Data__c.Doctor_Name__r.Name,
+                Call_Plan_Data__c.AccountId__c,
+                Call_Plan_Data__c.Predicted_Account_fulfillment__c,
+                Call_Plan_Data__c.Account_Potential__c,
+                Call_Plan_Data__c.Potential_Difference__c,
+                Call_Plan_Data__c.Medicare_Procedure__c,
+                Call_Plan_Data__c.Call_Frequency_Monthly__c,
+                Call_Plan_Data__c.Cataract_Segment__c,
+                Call_Plan_Data__c.JNJ_IOL_share__c,
+                Call_Plan_Data__c.Plan_to_use_all_JnJ_Prod__c,
+                Call_Plan_Data__c.Available_Doctor_P2__c,
+                Call_Plan_Data__c.Call_of_This_Month__c,
+                Call_Plan_Data__c.Scheduled_Call_of_This_Month__c,
+                Call_Plan_Data__c.Contact_Name__c,
+                Call_Plan_Data__c.Doctor_Name__c,
+                Call_Plan_Data__c.Doc1_Available_Datetime__c,
+                Call_Plan_Data__c.Available_Doctor_P1__c,
+                Call_Plan_Data__c.Doc_2_Available_Datetime__c,
+                Call_Plan_Data__c.Account_Addess__c,
+                Call_Plan_Data__c.Call_Schedule_Flag__c,
+                Call_Plan_Data__c.Incoming_Call_of_This_Month__c,
+                Call_Plan_Data__c.Target_in_3_month__c,
+                Call_Plan_Data__c.Predicted_IOL_Sales_Amount__c,
+                Call_Plan_Data__c.IOL_sales__c,
+                Call_Plan_Data__c.Main_Doctor__c
+                
+                };
+                    }
+    /* 
+* getCallPlannerRecSelect
+* @description get Call Planning for Positive Account from Call_Plan_Data__c
+* @return Returns list of Call Planning for Positive Account
+*/
+    public List<Call_Plan_Data__c> getCallPlannerRecSelect(Set<String> vcodes,string User_Division,string Has_Sales_Positive)
+    {
+        fflib_QueryFactory aQF = newQueryFactory().setCondition('Has_Sales_every_Month__c =:Has_Sales_Positive AND (User_Division__c =:User_Division OR Trim_Data__c LIKE :vcodes OR TM_Manager1__c LIKE :vcodes OR TM_Manager2__c LIKE :vcodes OR TM_Manager3__c LIKE :vcodes OR TM_Manager4__c LIKE :vcodes)');
+        return (List<Call_Plan_Data__c>) Database.query(aQF.toSOQL());
+    }
+    /* 
+* getCallPlannerNegSelectRec
+* @description get Call Planning for Positive Account from Call_Plan_Data__c
+* @return Returns list of Call Planning for Negative Account
+*/
+    public List<Call_Plan_Data__c> getCallPlannerNegSelectRec(Set<String> vcodes,string User_Division,string Has_Sales_Positive)
+    {
+        fflib_QueryFactory aQF = newQueryFactory().setCondition('Has_Sales_every_Month__c =:Has_Sales_Positive AND (User_Division__c =:User_Division OR Trim_Data__c LIKE :vcodes OR TM_Manager1__c LIKE :vcodes OR TM_Manager2__c LIKE :vcodes OR TM_Manager3__c LIKE :vcodes OR TM_Manager4__c LIKE :vcodes)');
+        return (List<Call_Plan_Data__c>) Database.query(aQF.toSOQL());
+    }
+    
+    public override String getOrderBy(){
+        return 'Call_Target_Meet__c DESC NULLS LAST, Priority__c ASC NULLS LAST';
+    }
+}
+******************************************************
