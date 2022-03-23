@@ -1,0 +1,290 @@
+CA_NegativeDatable----------------->
+<!--
+* @author : Urvashi Barapatre | APJ Call Automation FOR JAPAN
+* @description : Call Planning datatable for Negative Account
+* @date : 22-02-2022
+* Copyright (c) $2022 Johnson & Johnson
+-->
+<aura:component controller="CA_DatableClass" 
+                implements="force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,lightning:availableForFlowScreens" 
+                access="global">
+    <aura:attribute name="callPlannerList" type="object"/>
+    <aura:attribute name="mycolumns" type="List"/>
+    <aura:attribute name="sortedBy" type="boolean" default="Schedule_Flag_Disable__c"/>
+    <aura:attribute name="sortedDirection" type="String" default="asc"/>
+    <aura:attribute name="openModal" type="boolean" default="false"/>
+    <aura:attribute name="selectesRec" type="Call_Plan_Data__c"/>
+    <aura:attribute name="fieldMap" type="Map"/>
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
+    
+    <div class="slds-card">
+        <div class="slds-card__header slds-grid">
+            <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                <div class="slds-media__figure">
+                    <lightning:Icon iconName="standard:call"  size="small" class="slds-icon slds-input__icon slds-input__icon_right " />
+                </div>
+                <div class="slds-media__body">
+                    <h1>
+                        <a href="javascript:void(0);" class="slds-card__header-link slds-truncate" title="Account List">
+                            <span class="slds-text-heading_small">Call Planning for Negative Account</span>
+                        </a>
+                    </h1>
+                </div>
+            </header>           
+        </div>
+        <lightning:card >
+            <lightning:datatable data="{!v.callPlannerList}" columns="{!v.mycolumns}" 
+                                 keyField="id" hideCheckboxColumn="true"
+                                 onsort="{!c.updateColumnSorting}"
+                                 sortedBy="{!v.sortedBy}" sortedDirection="{!v.sortedDirection}"
+                                 onrowaction="{!c.handleRowAction }" />
+        </lightning:card>
+    </div>
+    <!-- Start Modal Code-->
+    <aura:if isTrue="{!v.openModal}">
+        <c:CA_EventPopUp_CMP openModal='true' selectesRec ='{!v.selectesRec}'/>
+    </aura:if>
+    <!--End Modal code-->
+</aura:component>
+************************************
+({
+    updateColumnSorting: function (cmp, event, helper)
+    {
+        let fieldName = event.getParam('fieldName');
+        let sortDirection = event.getParam('sortDirection');
+        cmp.set("v.sortedBy", fieldName);
+        cmp.set("v.sortedDirection", sortDirection);
+        helper.sortData(cmp, fieldName, sortDirection);
+    },
+    
+    handleRowAction: function (cmp, event, helper)
+    {
+        let row = event.getParam('row');
+        cmp.set('v.selectesRec', row);
+        cmp.set("v.openModal", true);
+        /*
+        * Available Datetime1 Split Code
+        */
+        if (row.Doc1_Available_Datetime__c != null)
+        {
+            let splitVal1 = row.Doc1_Available_Datetime__c.replaceAll(" ", "<br/>");
+            let splitVal01 = splitVal1.replace(/(<br\s*\/?>){2,}/gi, '<br>');
+            cmp.set("v.availDTP1Val", splitVal01);
+        }
+        /*
+         * Available Datetime2 Split Code
+        */
+        if (row.Doc_2_Available_Datetime__c != null)
+        {
+            let splitVal2 = row.Doc_2_Available_Datetime__c.replaceAll(" ", "<br>");
+            let splitVal01 = splitVal2.replace(/(<br\s*\/?>){2,}/gi, '<br>');
+            cmp.set("v.availDTP2Val", splitVal01);
+        }
+    },
+    
+    doInit: function (component, event, helper)
+    {
+        component.set('v.accName', 'selectesRec.AccountId__c');
+        component.set('v.mycolumns', [
+            {
+                label: 'Action',
+                type: 'button',
+                typeAttributes:
+                {
+                    iconName: 'utility:view',
+                    label: 'Schedule',
+                    name: 'viewRecord',
+                    disabled: false,
+                    value: 'viewBtn',
+                    variant: { fieldName: 'buttonColor' }
+                },
+                "initialWidth": 150
+            },
+            {
+                label: 'Priority',
+                fieldName: 'Priority__c',
+                type: 'Number',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Account Name',
+                fieldName: 'linkName',
+                type: 'url',
+                typeAttributes: {
+                    label: { fieldName: 'Account_Name__c' },
+                    target: '_blank'
+                },
+                "initialWidth": 150
+            },
+            {
+                label: 'Last Call Date',
+                fieldName: 'Last_Call_Date_Formula__c',
+                type: 'text',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Completed Call of This Month',
+                fieldName: 'Call_of_This_Month__c',
+                type: 'Number',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Incoming Call of This Month',
+                fieldName: 'Incoming_Call_of_This_Month__c',
+                type: 'text',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Call Frequency',
+                fieldName: 'Call_Frequency_Monthly__c',
+                type: 'Number',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Segment',
+                fieldName: 'Cataract_Segment__c',
+                type: 'text',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Procedures',
+                fieldName: 'Medicare_Procedure__c',
+                type: 'Number',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Predicted Sales(Monthly)',
+                fieldName: 'Predicted_IOL_Sales_Amount__c',
+                type: 'currency',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Sales(Monthly)',
+                fieldName: 'IOL_sales__c',
+                type: 'currency',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'JnJ Share',
+                fieldName: 'JNJ_IOL_share__c',
+                type: 'Number',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Dr1',
+                fieldName: 'Available_Doctor_P1__c',
+                type: 'text',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Available Datetime1',
+                fieldName: 'Doc1_Available_Datetime__c',
+                type: 'text',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Dr2',
+                fieldName: 'Available_Doctor_P2__c',
+                type: 'text',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Available Datetime2',
+                fieldName: 'Doc_2_Available_Datetime__c',
+                type: 'text',
+                sortable: true,
+                "initialWidth": 150
+            },
+            {
+                label: 'Address',
+                fieldName: 'Account_Addess__c',
+                type: 'text',
+                sortable: true,
+                "initialWidth": 150
+            }
+        ]);
+        helper.fetchNegativesAccounts(component);
+    },
+});
+****************************
+({
+    sortData: function (cmp, fieldName, sortDirection)
+    {
+        let data = cmp.get("v.callPlannerList");
+        let reverse = sortDirection !== 'asc';
+        data.sort(this.sortBy(fieldName, reverse));
+        cmp.set("v.callPlannerList", data);
+    },
+    
+    sortBy: function (field, reverse, primer)
+    {
+        let key = primer ? function (x) {
+            return primer(x[field]);
+        } : function (x) {
+            return x[field];
+        };
+        reverse = !reverse ? 1 : -1;
+        return function (a, b) {
+            return a = key(a), b = key(b), reverse * ((a > b) - (b > a));
+        };
+    },
+    
+    fetchNegativesAccounts: function (component)
+    {
+        let action = component.get("c.getCallPlannerNegativeRec");
+        action.setParams({});
+        action.setCallback(this, function (response) {
+            let state = response.getState();
+            if (state === "SUCCESS")
+            {
+                let records = response.getReturnValue();
+                component.set("v.callPlannerList", response.getReturnValue());
+                records.forEach(function (record) {
+                    record['linkName'] = '/lightning/r/Account/' + record['AccountId__c'] + '/view';
+                });
+                for (let i = 0; i < records.length; i++)
+                {
+                    if (records[i].Call_Target_Meet__c == 1)
+                    {
+                        records[i].buttonColor = 'destructive';
+                    } 
+                    else 
+                    {
+                        records[i].buttonColor = 'destructive-text';
+                    }
+                }
+                component.set("v.callPlannerList", records);
+            }
+            else if (state === "ERROR")
+            {
+                let errors = response.getError();
+                if (errors)
+                {
+                    $A.log("Errors", errors[0].message);
+                }
+            }
+        });
+        $A.enqueueAction(action);
+    },
+})
+******************************
+.THIS .slds-th__action{
+    color: #B71C1C;
+}
+.THIS .color{
+    color: #B71C1C;
+}
+*****************
