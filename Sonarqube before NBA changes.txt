@@ -1,0 +1,395 @@
+RecommendationUtils_CA---------->
+/**
+ * Util class for Recommendation NBA
+ * @author : Urvashi Barapatre | APJ Call Automation FOR JAPAN
+ * @date 03-02-2022
+ * Copyright (c) $2022 Johnson & Johnson
+ */
+public class RecommendationUtils_CA
+{
+	public static final String JAPAN_NBA_NAME = System.Label.CA_Recommendation_Setting_Record_Name;
+	/**
+	 * gets vcode of users
+	 *
+	 * @param users : List of users
+	 *
+	 * @return set of vcodes
+	 */
+	public static Set<String> getVcodes(List<User> users)
+	{
+		Set<String> vcodes = new Set<String>();
+		for (User usr : users)
+		{
+			if (String.isBlank(usr.User_VCode__c))
+			{
+				vcodes.add(usr.User_VCode__c + '%');
+			}
+			else
+			{
+				vcodes.add(usr.User_VCode__c);
+			}
+		}
+		return vcodes;
+	}
+
+	/**
+	 * gets recommendations for Account with assets which have passed 7 years since installed and have no Open Phaco Oppos that were created within 1 year
+	 * @param accs : List of accs
+	 * @param users : List of users
+	 * @param rs : Recommendation_Setting__mdt
+	 * @return List of recommendations list
+	 */
+	public static List<List<Recommendation>> getEventCreateRecommendations(List<Account> accs, List<User> users, Recommendation_Setting__mdt rs)
+	{
+		List<List<Recommendation>> outputs = new List<List<Recommendation>>();
+		for (User u : users)
+		{
+			String uv = u.User_VCode__c;
+			List<Account> eligibleAccounts = getEligibleAccounts(accs, uv, rs);
+			List<Recommendation> recs = getHomePageEventCreateRecommendations(eligibleAccounts, rs);
+			outputs.add(recs);
+		}
+		return outputs;
+	}
+
+	/**
+	 * gets recommendations for getopptyMapForHomePageEvent
+	 *
+	 * @param recSetting : List of rs: Recommendation_Setting__mdt
+	 *
+	 * @return List of Map of Oppoortunity
+	 */
+
+	Public static map<ID, List<Opportunity>> getopptyMapForHomePageEvent(Recommendation_Setting__mdt recSetting)
+	{
+		OpportunitiesSelector_CA OppList = new OpportunitiesSelector_CA();
+		List<Opportunity> oplist = OppList.getOpptyWithOpptyLineItem(recSetting.Region_Filter__c, recSetting.ProductFamily__c, recSetting.Oppty_RecordTypeName__c, recSetting.Open_Oppty__c);
+
+		Map<Id, List<Opportunity>> MapOpp = new Map<Id, List<Opportunity>>();
+
+		for (Opportunity Opp : oplist)
+		{
+			if (Opp.opportunitylineitems.size() > 0)
+			{
+				if (MapOpp.containsKey(Opp.AccountId))
+				{
+					MapOpp.get(Opp.AccountId).add(Opp);
+				}
+				else
+				{
+					MapOpp.put(Opp.AccountId, new List<Opportunity> {Opp});
+				}
+			}
+		}
+		return MapOpp;
+	}
+
+	/**
+	 * gets recommendations for Account with assets which have passed 7 years since installed and have no Open Phaco Oppos that were created within 1 year
+	 * @param accounts : List of accounts
+	 * @param recSetting : Recommendation_Setting__mdt
+	 * @return List of Recommendations
+	 */
+	public static List<Recommendation> getHomePageEventCreateRecommendations(List<Account> accounts, Recommendation_Setting__mdt recSetting)
+	{
+		Map<Id, List<Opportunity>> MapOpp = getopptyMapForHomePageEvent(recSetting);
+
+		List<Recommendation> recs = new List<Recommendation>();
+		for (Account currentAccount : accounts)
+		{
+			list<Opportunity> OP1 = new list<Opportunity>();
+			if (MapOpp.containsKey(currentAccount.Id))
+			{
+				OP1 = MapOpp.get(currentAccount.Id);
+			}
+			if (currentAccount.Assets.size() > 0 && OP1.size() > 0)
+			{
+				if ((System.today() > currentAccount.CA_Snooze_Till_Recommendation_Date__c || currentAccount.CA_Snooze_Till_Recommendation_Date__c == null) && currentAccount.CA_Event_NBA_Rejection_Date2__c == null)
+				{
+                    for (Asset ass : currentAccount.Assets)
+                    {
+                        String recDesc = System.Label.CA_Asset + ' ' + currentAccount.Name + ' ' + System.Label.CA_AssetExpire2 + ' ' + ass.Asset_Age_Calculator__c + ' ' + System.Label.CA_AssetExpire3 ;
+                        String Name = ass.Name;
+                        String Description = recDesc;
+                        String ActionReference = System.Label.Event_Flow_Action_Reference;
+                        String AcceptanceLabel = System.Label.Create_Event_Acceptance_Label;
+                        String RejectionLabel = System.Label.Create_Event_RejectionLabel_Label;
+                        String recId = ass.Id;
+                        String eventWhatId = currentAccount.Id;
+                        String contextobj = System.Label.ContextObject_Account;
+                        Recommendation rec = generateRecommendation(Description, Name, ActionReference, recId, AcceptanceLabel, RejectionLabel, eventWhatId, contextobj);
+                        recs.add(rec);
+                    }
+				}
+			}
+		}
+		return recs;
+	}
+
+	/**
+	 * gets recommendations for account with NBA flagged events created within 1 year and has been visited, and the account have no open Phaco Oppo
+	 *
+	 * @param accs : List of accs
+	 * @param users : List of users
+	 * @param rs : Recommendation_Setting__mdt
+	 *
+	 * @return List of recommendations list
+	 */
+	public static List<List<Recommendation>> getOpptyCreateRecommendations(List<Account> accs, List<User> users, Recommendation_Setting__mdt rs)
+	{
+		List<List<Recommendation>> outputs = new List<List<Recommendation>>();
+		for (User u : users)
+		{
+			String uv = u.User_VCode__c;
+			List<Account> eligibleAccounts = getEligibleAccounts(accs, uv, rs);
+			List<Recommendation> recs = getHomePageOpptyCreateRecommendations(eligibleAccounts, rs);
+			outputs.add(recs);
+		}
+		return outputs;
+	}
+
+	/**
+	 * gets recommendations for getopptyMapForHomePageOportunities
+	 *
+	 * @param recSetting : List of rs: Recommendation_Setting__mdt
+	 *
+	 * @return List of Map of Oppoortunity
+	 */
+
+	Public static map<ID, List<Opportunity>> getopptyMapForHomePageOportunities(Recommendation_Setting__mdt recSetting)
+	{
+		OpportunitiesSelector_CA OppList = new OpportunitiesSelector_CA();
+		List<Opportunity> oplist = OppList.getClosedOpptyWithOpptyLineItem(recSetting.Region_Filter__c, recSetting.ProductFamily__c, recSetting.Closed_Oppty__c, recSetting.Oppty_RecordTypeName__c);
+
+		Map<Id, List<Opportunity>> MapOpp = new Map<Id, List<Opportunity>>();
+
+		for (Opportunity Opp : oplist)
+		{
+			if (Opp.opportunitylineitems.size() > 0)
+			{
+				if (MapOpp.containsKey(Opp.AccountId))
+				{
+					MapOpp.get(Opp.AccountId).add(Opp);
+				}
+				else
+				{
+					MapOpp.put(Opp.AccountId, new List<Opportunity> {Opp});
+				}
+			}
+		}
+		return MapOpp;
+	}
+
+	/**
+	 * gets recommendations for account with NBA flagged events created within 1 year and has been visited, and the account have no open Phaco Oppo
+	 * @param accounts : List of accounts
+	 * @param recSetting : Recommendation_Setting__mdt
+	 * @return List of Recommendations
+	 */
+	public static List<Recommendation> getHomePageOpptyCreateRecommendations(List<Account> accounts, Recommendation_Setting__mdt recSetting)
+	{
+		Map<Id, List<Opportunity>> MapOpp = getopptyMapForHomePageOportunities(recSetting);
+
+		List<Recommendation> recs = new List<Recommendation>();
+		for (Account currentAccount : accounts)
+		{
+			list<Opportunity> OP1 = new list<Opportunity>();
+			if (MapOpp.containsKey(currentAccount.Id))
+			{
+				OP1 = MapOpp.get(currentAccount.Id);
+			}
+			if (currentAccount.Events.size() > 0 && OP1.size() > 0)
+			{
+				if((System.today() > currentAccount.CA_Opportunity_Snooze_Till_Recommendatio__c || currentAccount.CA_Opportunity_Snooze_Till_Recommendatio__c == null) && currentAccount.CA_Opportunity_NBA_Rejection_Date__c == null)
+				{
+					for (Event ev : currentAccount.Events)
+					{
+						Id userId = Userinfo.getUserId();
+						String recDesc = System.Label.CA_Asset + ' ' + currentAccount.Name + ' ' + System.Label.CA_Oppty_Label;
+						String Name = ev.Subject;
+						String Description = recDesc;
+						String ActionReference = System.Label.Opportunity_Flow_Action_Reference;
+						String AcceptanceLabel = System.Label.Create_Opporunity_Acceptance_Label;
+						String RejectionLabel = System.Label.Oppty_Rejection_Label;
+						String recId = currentAccount.Id;
+						String eventWhatId = currentAccount.Id;
+						String contextobj = userId;
+						Recommendation rec = generateRecommendation(Description, Name, ActionReference, recId, AcceptanceLabel, RejectionLabel, eventWhatId, contextobj);
+						recs.add(rec);
+					}
+				}
+			}
+		}
+		return recs;
+	}
+
+	/**
+	 * gets eligible accounts based on Account Executive and Premium Practice Specialist fields
+	 * @param accounts : List of accounts
+	 * @param usrVcode 
+	 * @param recSetting : Recommendation_Setting__mdt
+	 * @return List of Accounts
+	 */
+	public static List<Account> getEligibleAccounts(List<Account> accounts, String usrVcode, Recommendation_Setting__mdt recSetting)
+	{
+		List<Account> acnt = new List<Account>();
+		for (Account currentAccount : accounts)
+		{
+			if (currentAccount != null)
+			{
+				String exCode = recSetting.Invalid_Vcode__c;
+				String spCode = recSetting.Invalid_Vcode__c;
+				if (currentAccount.Territory_Manager__c != null)
+				{
+					exCode = currentAccount.Territory_Manager__c.split('-').get(0);
+				}
+				if (currentAccount.Refractive_Implant_Specialist__c != null)
+				{
+					spCode = currentAccount.Refractive_Implant_Specialist__c.split('-').get(0);
+				}
+				if (usrVcode == exCode ||
+						usrVcode == spCode)
+				{
+					acnt.add(currentAccount);
+				}
+			}
+		}
+		return acnt;
+	}
+
+	/**
+	 * generates recommendations on Home Page
+	 * @param recDescription 
+	 * @param recName 
+	 * @param flowReference 
+	 * @param idReference 
+	 * @param acceptLabel 
+	 * @param rejectLabel 
+	 * @param eventWhatId 
+	 * @param contextObj 
+	 * @return Recommendation
+	 */
+	public static Recommendation generateRecommendation(String recDescription, String recName, String flowReference, String idReference, String acceptLabel, String rejectLabel, String eventWhatId, String contextObj)
+	{
+		if (!String.isBlank(EventwhatId))
+		{
+			Recommendation reco = new Recommendation(
+					Name = recName,
+					Description = recDescription,
+					ActionReference = flowReference,
+					AcceptanceLabel = acceptLabel,
+					RejectionLabel = rejectLabel,
+					Dummy_Id__c = idReference,
+					Event_What_ID__c = EventwhatId,
+					ContextObject__c = contextObj
+			);
+			return reco;
+		}
+		else
+		{
+			Recommendation reco = new Recommendation(
+					Name = recName,
+					Description = recDescription,
+					ActionReference = flowReference,
+					AcceptanceLabel = acceptLabel,
+					RejectionLabel = rejectLabel,
+					Dummy_Id__c = idReference,
+					ContextObject__c = contextObj
+			);
+			return reco;
+		}
+	}
+    
+    /**
+	 * gets recommendations for account with Open Oppos which have not been updated for 30 days.
+	 *
+	 * @param accs : List of accs
+	 * @param users : List of users
+	 * @param rs : Recommendation_Setting__mdt
+	 *
+	 * @return List of recommendations list
+	 */
+    public static List<List<Recommendation>> getOpenOpptyToCreateEventRecommendations(List<Account> accs, List<User> users, Recommendation_Setting__mdt rs)
+    {
+        List<List<Recommendation>> outputs = new List<List<Recommendation>>();
+        for (User u : users)
+        {
+            String uv = u.User_VCode__c;
+            List<Account> eligibleAccounts = getEligibleAccounts(accs, uv, rs);
+            List<Recommendation> recs = getHomePageEventWithOpptyCreateRec(eligibleAccounts, rs);
+            outputs.add(recs);
+        }
+        return outputs;
+    }
+    
+    /**
+	 * gets recommendations for account with Open Oppos which have not been updated for 30 days.
+	 * @param accounts : List of accounts
+	 * @param recSetting : Recommendation_Setting__mdt
+	 * @return List of Recommendations
+	 */
+	public static List<Recommendation> getHomePageEventWithOpptyCreateRec(List<Account> accounts, Recommendation_Setting__mdt recSetting)
+    {
+        Map<Id, List<Opportunity>> MapOpp = getopptyMapForHomePageOpen_Oppty(recSetting);
+        
+        List<Recommendation> recs = new List<Recommendation>();
+        for (Account currentAccount : accounts)
+        {
+            list<Opportunity> OP1 = new list<Opportunity>();
+            if (MapOpp.containsKey(currentAccount.Id))
+            {
+                OP1 = MapOpp.get(currentAccount.Id);
+            }
+            if (OP1.size() > 0)
+            {
+                if(System.today() > currentAccount.CA_Phaco_Event_With_Oppo__c || currentAccount.CA_Phaco_Event_With_Oppo__c == null)
+                {
+                    Integer noOfDays = (Date.valueOf(OP1[0].LastModifiedDate).daysBetween(Date.today()));
+                    String recDesc = System.Label.CA_Creat_Phaco_Event_With_Oppo_Description1 + ' ' + OP1[0].Name + ' ' + System.Label.CA_Creat_Phaco_Event_With_Oppo_Description2 + ' ' + noOfDays + ' ' + System.Label.CA_Creat_Phaco_Event_With_Oppo_Description3;
+                    String Name = OP1[0].Name;
+                    String Description = recDesc;
+                    String ActionReference = System.Label.CA_Event_flow_Action_reference;
+                    String AcceptanceLabel = System.Label.Create_Event_Acceptance_Label;
+                    String RejectionLabel = System.Label.Oppty_Rejection_Label;
+                    String recId = currentAccount.Id;
+                    String eventWhatId = OP1[0].Id;
+                    String contextobj = System.Label.ContextObject_Account;
+                    Recommendation rec = generateRecommendation(Description, Name, ActionReference, recId, AcceptanceLabel, RejectionLabel, eventWhatId, contextobj);
+                    recs.add(rec);
+                }
+            }
+        }
+        return recs;
+    }
+    
+    /**
+	 * gets recommendations for getopptyMapForHomePageOpen_Oppty
+	 *
+	 * @param recSetting : List of rs: Recommendation_Setting__mdt
+	 *
+	 * @return List of Map of Oppoortunity
+	 */
+    Public static map<ID, List<Opportunity>> getopptyMapForHomePageOpen_Oppty(Recommendation_Setting__mdt recSetting)
+    {
+        OpportunitiesSelector_CA OppList = new OpportunitiesSelector_CA();
+        List<Opportunity> oplist = OppList.getOpenOppty(recSetting.Region_Filter__c, recSetting.ProductFamily__c, recSetting.Open_Oppty__c, recSetting.Oppty_RecordTypeName__c);
+        Map<Id, List<Opportunity>> MapOpp = new Map<Id, List<Opportunity>>();
+        
+        for (Opportunity Opp : oplist)
+        {
+            if (Opp.opportunitylineitems.size() > 0)
+            {
+                if (MapOpp.containsKey(Opp.AccountId))
+                {
+                    MapOpp.get(Opp.AccountId).add(Opp);
+                }
+                else
+                {
+                    MapOpp.put(Opp.AccountId, new List<Opportunity> {Opp});
+                }
+            }
+        }
+        return MapOpp;
+    }
+}
+*******************************
