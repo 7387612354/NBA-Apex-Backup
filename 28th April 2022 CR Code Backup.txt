@@ -1,0 +1,946 @@
+CallPlanDataSelector_CA----------------->
+
+/**
+ * Call Plan Data selector class
+ *
+ * @author : Urvashi Barapatre | APJ Call Automation FOR JAPAN
+ *
+ * @date : 22-02-2022
+ * Copyright (c) $2022 Johnson & Johnson
+ */
+public with sharing class CallPlanDataSelector_CA extends fflib_SObjectSelector
+{
+	public static CallPlanDataSelector_CA newInstance()
+	{
+		return (CallPlanDataSelector_CA) Application_CA.Selector.newInstance(Call_Plan_Data__c.SObjectType);
+	}
+
+	public SObjectType getSObjectType()
+	{
+		return Call_Plan_Data__c.SObjectType;
+	}
+
+	public List<Schema.SObjectField> getSObjectFieldList()
+	{
+		return new List<Schema.SObjectField>
+		{
+				Call_Plan_Data__c.AccountId__c,
+				Call_Plan_Data__c.Account_Addess__c,
+				Call_Plan_Data__c.Account_Name__c,
+				Call_Plan_Data__c.Account_Potential__c,
+				Call_Plan_Data__c.Available_Doctor_P1__c,
+				Call_Plan_Data__c.Available_Doctor_P2__c,
+				Call_Plan_Data__c.Call_Frequency_Monthly__c,
+				Call_Plan_Data__c.Call_of_This_Month__c,
+				Call_Plan_Data__c.Call_Target_Meet__c,
+				Call_Plan_Data__c.Cataract_Segment__c,
+				Call_Plan_Data__c.Doctor_Name__c,
+				Call_Plan_Data__c.Doctor_Name__r.Name,
+				Call_Plan_Data__c.Doc1_Available_Datetime__c,
+				Call_Plan_Data__c.Doc_2_Available_Datetime__c,
+				Call_Plan_Data__c.Has_Sales_every_Month__c,
+				Call_Plan_Data__c.Incoming_Call_of_This_Month__c,
+				Call_Plan_Data__c.IOL_sales__c,
+				Call_Plan_Data__c.JNJ_IOL_share__c,
+				Call_Plan_Data__c.Last_Call_Date__c,
+				Call_Plan_Data__c.Last_Call_Date_Formula__c,
+				Call_Plan_Data__c.Main_Doctor__c,
+				Call_Plan_Data__c.Medicare_Procedure__c,
+				Call_Plan_Data__c.Plan_to_use_all_JnJ_Prod__c,
+				Call_Plan_Data__c.Potential_Difference__c,
+				Call_Plan_Data__c.Priority__c,
+				Call_Plan_Data__c.Predicted_Account_fulfillment__c,
+				Call_Plan_Data__c.Priority_DNVF__c,
+				Call_Plan_Data__c.Predicted_IOL_Sales_Amount__c,
+				Call_Plan_Data__c.Premium_Practice_Specialist__c,
+				Call_Plan_Data__c.Premium_Practice_Specialist_trim_data__c,
+				Call_Plan_Data__c.Sales_Diff_Negative__c,
+				Call_Plan_Data__c.Scheduled_Call_of_This_Month__c,
+				Call_Plan_Data__c.Target_in_3_month__c,
+				Call_Plan_Data__c.Target_month_Sales_plan_unit__c,
+				Call_Plan_Data__c.TM_Manager1__c,
+				Call_Plan_Data__c.TM_Manager2__c,
+				Call_Plan_Data__c.TM_Manager3__c,
+				Call_Plan_Data__c.TM_Manager4__c,
+				Call_Plan_Data__c.Trim_Data__c,
+				Call_Plan_Data__c.User_Division__c
+		};
+	}
+
+	/* 
+* getCallPlannerRecSelect
+* @description get Call Planning for Positive/Negative Account from Call_Plan_Data__c
+* @return Returns list of Call Planning for Positive/Negative Account
+*/
+	public List<Call_Plan_Data__c> getCallPlannerRecSelect(Set<String> vcodes, Set<String> User_Division, Set<String> Has_Sales_Positive)
+	{
+		fflib_QueryFactory aQF = newQueryFactory().setCondition('Has_Sales_every_Month__c IN: Has_Sales_Positive AND (User_Division__c IN: User_Division OR Trim_Data__c LIKE :vcodes OR Premium_Practice_Specialist_trim_data__c LIKE :vcodes)');
+		return (List<Call_Plan_Data__c>) Database.query(aQF.toSOQL());
+	}
+	public override String getOrderBy()
+	{
+		return 'Call_Target_Meet__c DESC NULLS LAST, Priority_DNVF__c ASC NULLS LAST';
+	}
+}
+*******************************
+CallPlanDataServiceImpl--------------------------------->
+
+public with sharing class CallPlanDataServiceImpl implements ICallPlanDataService
+{
+	public static List<Call_Plan_Data__c> getCallPlannerRec()
+	{
+		List<Recommendation_Setting__mdt> rs = RecommendationSettingSelector_CA.newInstance().selectByName(RecommendationUtils_CA.JAPAN_NBA_NAME);
+		List<User> users = new List<User>(UsersSelector_CA.newInstance().selectByLoggedInUser());
+		Set<String> vcodes = CA_DatableClass.getVcodes(users);
+		List<Call_Plan_Data__c> cls = new List<Call_Plan_Data__c>();
+		if (!vcodes.IsEmpty())
+		{
+			cls = CallPlanDataSelector_CA.newInstance().getCallPlannerRecSelect(vcodes, new Set<String> {users[0].User_Division__c}, new Set<String> {rs[0].CA_Has_Sales_Positive__c});
+		}
+		return cls;
+	}
+
+	public static List<Call_Plan_Data__c> getCallPlannerNegativeRec()
+	{
+		List<Recommendation_Setting__mdt> rs = RecommendationSettingSelector_CA.newInstance().selectByName(RecommendationUtils_CA.JAPAN_NBA_NAME);
+		List<User> users = new List<User>(UsersSelector_CA.newInstance().selectByLoggedInUser());
+		Set<String> vcodes = CA_DatableClass.getVcodes(users);
+
+		List<Call_Plan_Data__c> cls = new List<Call_Plan_Data__c>();
+		if (!vcodes.IsEmpty())
+		{
+			cls = CallPlanDataSelector_CA.newInstance().getCallPlannerRecSelect(vcodes, new Set<String> {users[0].User_Division__c}, new Set<String> {rs[0].CA_Has_Sales_Negative__c});
+		}
+		return cls;
+	}
+
+	public static Map<String, String> getEventtypeFieldValue()
+	{
+		Map<String, String> options = new Map<String, String>();
+		Schema.DescribeFieldResult fieldResult = Call_Plan_Data__c.Event_Type_JP__c.getDescribe();
+		List<Schema.PicklistEntry> pValues = fieldResult.getPicklistValues();
+		for (Schema.PicklistEntry p : pValues)
+		{
+			options.put(p.getValue(), p.getLabel());
+		}
+		return options;
+	}
+
+	public static List <String> getPiklistValues()
+	{
+		List<String> plValues = new List<String>();
+		Schema.SObjectType objType = Schema.getGlobalDescribe().get('Call_Plan_Data__c');
+		Schema.DescribeSObjectResult objDescribe = objType.getDescribe();
+		Schema.DescribeFieldResult objFieldInfo = objDescribe.fields.getMap().get('Other_Topics_Covered_JP__c').getDescribe();
+
+		List<Schema.PicklistEntry> picklistvalues = objFieldInfo.getPicklistValues();
+
+		for (Schema.PicklistEntry plv : picklistvalues)
+		{
+			plValues.add(plv.getValue());
+		}
+		plValues.sort();
+		return plValues;
+	}
+
+	public static event insertEvt(string callPlanRec, string eventsub, datetime strtdate, datetime enddate, String eventtype, String topics,String Field2,String Anticipatedques,String salesTools,String Field3)
+	{
+		fflib_ISObjectUnitOfWork uow = Application_CA.UnitOfWork.newInstance();
+
+		List<Recommendation_Setting__mdt> rs = RecommendationSettingSelector_CA.newInstance().selectByName(RecommendationUtils_CA.JAPAN_NBA_NAME);
+		Id recordTypeId = Schema.SObjectType.Event.getRecordTypeInfosByDeveloperName().get('JAPN_Cataract').getRecordTypeId();
+		Call_Plan_Data__c rec = (Call_Plan_Data__c) System.JSON.deserialize(callPlanRec, Call_Plan_Data__c.class);
+		Event eventRec = NEw Event();
+		eventRec.WhatId = rec.AccountId__c;
+		eventRec.WhoId = rec.Doctor_Name__c;
+		eventRec.Subject = eventsub;
+		eventRec.StartDateTime = strtdate;
+		eventRec.EndDateTime = enddate;
+		eventRec.Event_Type__c = eventtype;
+		eventRec.Other_Topics_Covered__c = topics;
+		eventRec.region__c = rs[0].Event_Region__c;
+		eventRec.Country__c = rs[0].CA_Country__c;
+		eventRec.Call_Planning_Flag__c = rs[0].CA_Call_Planning_Flag__c;
+		eventRec.RecordtypeId = recordTypeId;
+        eventRec.Field2__c = Field2;
+        eventRec.Anticipated_questions__c = Anticipatedques;
+        eventRec.Sales_Tools__c = salesTools;
+        eventRec.Field3__c = Field3;
+		uow.registerNew(eventRec);
+		uow.commitWork();
+		return eventRec;
+	}
+
+	public static list<Event> getAllEvents()
+	{
+		List<User> users = new List<User>(UsersSelector_CA.newInstance().selectByLoggedInUser());
+		list<Event> eventlist = EventsSelector_CA.newInstance().getAllEventSelect();
+		return eventlist;
+	}
+	public static List<Contact> fetchLookUpValues(String searchKeyWord, String ObjectName, String accountId)
+	{
+		List<Contact> returnList = new List<Contact>();
+		String searchKey = searchKeyWord + '%';
+		returnList = ContactsSelector_CA.newInstance().getAffiliatedContacts(new set<String> {searchKey}, new set<String> {accountId});
+		return returnList;
+	}
+}
+*******************************
+CA_EventPopUp_CMP---------------------------------->
+<!--
+* @author : Urvashi Barapatre | APJ Call Automation FOR JAPAN
+* @description : Call Planning Modal for Positive/Negative Account datatable
+* @date : 22-03-2022
+* Copyright (c) $2022 Johnson & Johnson
+-->
+<aura:component controller="CA_DatableClass" 
+                implements="force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,lightning:availableForFlowScreens" 
+                access="global">
+    <aura:attribute name="openModal" type="boolean"/>
+    <aura:attribute name="selectesRec" type="Call_Plan_Data__c"/>
+    <aura:attribute name="evtSubject" type="String" default=""/>
+    <aura:attribute name="ConId" type="String" default=""/>
+    <aura:attribute name="objectAPIName" type="string" default=""/>
+    <aura:attribute name="evtStart" type="string"/>
+    <aura:attribute name="evtend" type="string"/>
+    <aura:attribute name="evtType" type="String"/>
+    
+     <aura:attribute name="PurposeForVisiting" type="String"/>
+    <aura:attribute name="anticipatedquestions" type="String"/>
+    <aura:attribute name="salesTools" type="String"/>
+    <aura:attribute name="advancepreparation" type="String"/>
+    
+    <aura:attribute name="fieldMap" type="Map"/>
+    <aura:attribute name="availDTP1Val" type="string"/>
+    <aura:attribute name="availDTP2Val" type="string"/>
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
+    <!--Declare Other topics Attributes-->
+    <aura:attribute name="GenreList" type="List" default="[]" description="Genre Picklist Values"/>
+    <aura:attribute name="selectedGenreList" type="List" default="[]" description="Selected Genre Picklist Values"/>
+    <aura:attribute name="selectedLookUpRecord" type="sObject" default="{}"/>
+    <aura:attribute name="dateValidationError" type="boolean" />
+    <aura:attribute name="dateValidationError1" type="boolean" />
+    <!-- Declare Contact Lookup Attributes-->
+    <aura:handler name="oSelectedRecordEvent" event="c:CA_EventcustomLookup" action="{!c.handleComponentEvent}"/>
+    
+    <aura:if isTrue="{!v.openModal}">
+        <div class="slds-m-around_xx-large">
+            <!-- Modal/Popup Box starts here-->
+            <section role="dialog" tabindex="-1" aria-labelledby="modal-heading-01" aria-modal="true" aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open slds-modal_small">
+                <div class="slds-modal__container">
+                    <div class="slds-scrollable_y"  >
+                        <!--loading spinner start-->
+                        <div class="slds-is-relative">
+                            <aura:if isTrue="{!v.spinner}">
+                                <div aura:id="spinnerId" class="slds-spinner_container">
+                                    <div class="slds-spinner--brand  slds-spinner slds-spinner--medium slds-is-relative" role="alert">
+                                        <span class="slds-assistive-text">Loading</span>
+                                        <div class="slds-spinner__dot-a"></div>
+                                        <div class="slds-spinner__dot-b"></div>
+                                    </div>
+                                </div>
+                            </aura:if>
+                            <!--Loading spinner end--> 
+                            <!-- Code -->
+                            <lightning:card>
+                                <div class="slds-p-around_small">
+                                    <header class="slds-modal__header">
+                                        <strong><h1 id="modal-heading-01" class="color">New Event</h1></strong>
+                                    </header>
+                                    <div class="slds-grid slds-gutters slds-p-top_x-small slds-p-bottom_x-small">
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span>
+                                                <!--Subject-->
+                                                <lightning:input aura:id="fieldId" name="evtSubject" label="Subject"  value="{!v.evtSubject}" fieldLabel="Subject"/>
+                                            </span>
+                                        </div>
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span>
+                                                <!-- Picklist Event type Code Start-->
+                                                <div class="form-group">
+                                                    <lightning:select aura:id="validate" value="{!v.evtType}" name="industryPicklist" 
+                                                                      label="Event Type" messageWhenValueMissing="Event Type is Mandatory" required="true">
+                                                        <option value="">--None--</option>
+                                                        <aura:iteration items="{!v.fieldMap}" var="i" indexVar="key">
+                                                            <option text="{!i.value}" value="{!i.key}" selected="{!i.key==v.evtType}" />
+                                                        </aura:iteration>
+                                                    </lightning:select>
+                                                </div>
+                                                <!-- Picklist Event type Code End-->
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="slds-grid slds-gutters slds-p-top_x-small slds-p-bottom_x-small">
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span>
+                                                <lightning:input aura:id="validate" type="Datetime" name="evtStart" label="Start Date" value="{!v.evtStart}" 
+                                                                 messageWhenValueMissing="Start Date is Mandatory" required="true"  onchange="{!c.StartdateUpdate}" 
+                                                                 class="{! v.dateValidationError ? 'slds-has-error' : ''}"/>
+                                                <aura:if isTrue="{!v.dateValidationError}">
+                                                    <div class="slds-text-color_error slds-p-left_x-small">
+                                                        Start Date must be in present or in future date.
+                                                    </div>
+                                                </aura:if>  
+                                            </span>
+                                        </div>
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span>
+                                                <lightning:input aura:id="validate" type="Datetime" name="evtEnd" label="End Date" value="{!v.evtend}" 
+                                                                 messageWhenValueMissing="End Date is Mandatory" required="true" onchange="{!c.EnddateUpdate}" 
+                                                                 class="{! v.dateValidationError1 ? 'slds-has-error' : ''}"/>
+                                                 <aura:if isTrue="{!v.dateValidationError1}">
+                                                    <div class="slds-text-color_error slds-p-left_x-small">
+                                                        End Date should be greater than start date.
+                                                    </div>
+                                                </aura:if>  
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="slds-grid slds-gutters slds-p-top_x-small slds-p-bottom_x-small">
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span>
+                                                <div class="slds-form-element__label">Account Name</div>
+                                                <div class="slds-box slds-box_xx-small" style="{!v.selectesRec.Account_Name__c}">
+                                                    <aura:if isTrue="{!v.selectesRec.Account_Name__c}">
+                                                        <lightning:icon iconName="standard:account" size="small"></lightning:icon> &nbsp;&nbsp;
+                                                        {!v.selectesRec.Account_Name__c}
+                                                    </aura:if>
+                                                </div>
+                                            </span>
+                                        </div>
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <!--Lookup Contact code Start-->
+                                            <span>
+                                                <c:CA_ParentComponent 
+                                                                      objectAPIName="Contact" 
+                                                                      IconName="standard:contact"
+                                                                      ConId="{!v.ConId}"
+                                                                      accountDetail="{!v.selectesRec.AccountId__c}"
+                                                                      selectedRecord="{!v.selectedLookUpRecord}"
+                                                                      label="Contact Name"
+                                                                      />
+                                            </span>
+                                        </div>
+                                        <!--Lookup Contact code End-->
+                                    </div>
+                                    <div class="slds-grid slds-gutters slds-p-top_x-small slds-p-bottom_x-small">
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span>
+                                                <lightning:input aura:id="fieldId" label='Dr1' value="{!v.selectesRec.Available_Doctor_P1__c}"  />
+                                            </span>
+                                        </div>
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span>
+                                                <lightning:input aura:id="fieldId" label='Dr2' value="{!v.selectesRec.Available_Doctor_P2__c}"  />
+                                            </span>
+                                        </div>
+                                    </div>    
+                                    <div class="slds-grid slds-gutters slds-p-top_x-small slds-p-bottom_x-small">
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span class='Span'>
+                                                <div class="slds-form-element__label">Available Datetime1</div>
+                                                <div class="slds-box slds-box_xx-small" style="{!v.availDTP1Val}"  name="datetime1">
+                                                    <lightning:formattedRichText value="{!v.availDTP1Val}"/>
+                                                    
+                                                </div>
+                                            </span>
+                                        </div>
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span>
+                                                <div class="slds-form-element__label">Available Datetime2</div>
+                                                <div class="slds-box slds-box_xx-small" style="{!v.availDTP2Val}">
+                                                    <lightning:formattedRichText value="{!v.availDTP2Val}" label="Available Datetime2"/>
+                                                    
+                                                </div>
+                                            </span>
+                                        </div>
+                                    </div> 
+                                    <!--New Implementation Start-->
+                                    <div class="slds-grid slds-gutters slds-p-top_x-small slds-p-bottom_x-small">
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span class='Span'>
+                                                <lightning:textarea value="{!v.PurposeForVisiting}" label="Purpose For Visiting" maxlength="300" />
+                                            </span>
+                                        </div>
+                                         <div class="slds-col slds-size_6-of-12">
+                                            <span class='Span'>
+                                                <lightning:textarea value="{!v.anticipatedquestions}" label="Anticipated questions" maxlength="300" />
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="slds-grid slds-gutters slds-p-top_x-small slds-p-bottom_x-small">
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span class='Span'>
+                                                <lightning:textarea value="{!v.salesTools}" label="Sales Tools" maxlength="300" />
+                                            </span>
+                                        </div>
+                                        <div class="slds-col slds-size_6-of-12">
+                                            <span class='Span'>
+                                                <lightning:textarea value="{!v.advancepreparation}" label="Advance Preparation" maxlength="300" />
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <!--New Implementation End-->
+                                    <lightning:dualListbox aura:id="selectGenre"
+                                                           name="Genre"
+                                                           label="Other Topics Covered"
+                                                           options="{!v.GenreList }"
+                                                           value="{!v.selectedGenreList}"
+                                                           onchange="{!c.handleGenreChange}"/>
+                                    
+                                    
+                                    <footer class="slds-modal__footer">
+                                        <lightning:button iconName="utility:undo"
+                                                          iconPosition="right"
+                                                          variant="destructive-text" 
+                                                          label="Cancel"
+                                                          title="Cancel"
+                                                          onclick="{! c.closeModal }"/>
+                                        
+                                        <lightning:button iconName="utility:send"
+                                                          variant="destructive" 
+                                                          label="Done"
+                                                          title="Done"
+                                                          onclick="{!c.saveRecord }"/>
+                                    </footer>
+                                </div>
+                            </lightning:card>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </div>
+    </aura:if>
+</aura:component>
+*******************************
+({
+    successShowtoast: function (cmp, event, helper)
+    {
+        let action = cmp.get("c.insertEvt");
+        let test = cmp.get("v.selectedGenreList").join('; ');
+        let isDateError = cmp.get("v.dateValidationError");
+        let isDateError1 = cmp.get("v.dateValidationError1");
+        if(isDateError != true && isDateError1 != true)
+        {
+            action.setParams({
+                callPlanRec: JSON.stringify(cmp.get("v.selectesRec")),
+                eventsub: cmp.get("v.evtSubject"),
+                strtdate: cmp.get("v.evtStart"),
+                enddate: cmp.get("v.evtend"),
+                eventtype: cmp.get("v.evtType"),
+                Field2: cmp.get("v.PurposeForVisiting"),
+                Anticipatedques: cmp.get("v.anticipatedquestions"),//salesTools,Field3
+                salesTools: cmp.get("v.salesTools"),
+                Field3: cmp.get("v.advancepreparation"),
+                topics: test
+            });
+            action.setCallback(this, function (response) {
+                let state = response.getState();
+                let toastEvent = $A.get("e.force:showToast");
+                if (state === "SUCCESS")
+                {
+                    let staticLabel = $A.get("$Label.c.CA_Save_Toast_Msg");
+                    toastEvent.setParams({
+                        title: 'Success',
+                        message: staticLabel,
+                        duration: ' 5000',
+                        key: 'info_alt',
+                        type: 'success',
+                        mode: 'pester'
+                    });
+                    
+                    $A.get('e.force:refreshView').fire();
+                }
+                else if (state === "ERROR")
+                {
+                    let errors = action.getError();
+                    toastEvent.setParams({
+                        title: 'Error',
+                        message: errors[0].message,
+                        type: 'error'
+                    });
+                    $A.get('e.force:refreshView').fire();
+                }
+                toastEvent.fire();
+            });
+            $A.enqueueAction(action);
+        }
+    },
+    
+    saveRecord: function (cmp, event, helper)
+    {
+        /* 
+         * custom validation for Event popup layout
+        */
+        let eventsfields = cmp.find("validate");
+        let blank = 0;
+        if (eventsfields.length != undefined ) 
+        {
+            let allValid = eventsfields.reduce(function (validSoFar, inputCmp) {
+                inputCmp.showHelpMessageIfInvalid();
+                return validSoFar && inputCmp.get('v.validity').valid;
+            }, true);
+            if (!allValid)
+            {
+                blank++;
+                
+            }
+        } 
+        else
+        {
+            let allValid = eventsfields;
+            if (!allValid.get('v.validity').valid)
+            {
+                blank++;
+            }
+        }
+        /* 
+         * custom validation for Contact Name from Event popup layout
+        */
+        let eventsfields1 = cmp.get('v.selectedLookUpRecord.Id');
+        if (eventsfields1 == "" || eventsfields1 === undefined || !eventsfields1)
+        {
+            let toastEvent = $A.get("e.force:showToast");
+            let staticLab = $A.get("$Label.c.CA_Contact_Mandatory_Label");
+            toastEvent.setParams({
+                title : 'Warning',
+                message: staticLab,
+                key: 'info_alt',
+                type: 'warning',
+            });
+            toastEvent.fire();
+            return;
+        }
+        if (blank == 0)
+        { 
+            let successMethod =cmp.get('c.successShowtoast');
+            $A.enqueueAction(successMethod);
+        }
+    },  
+    
+    /* 
+   	* Contact Lookup mapping on Event Popup layout
+  	*/
+    handleComponentEvent: function (cmp, event, helper)
+    {
+        cmp.set("v.ConId", event.getParam("recordByEventRec"));
+        let addNewVal = cmp.get('v.selectesRec');
+        addNewVal['Doctor_Name__c'] = event.getParam("recordByEventRec").Id;
+        let eventsfields1 = cmp.get('v.selectedLookUpRecord.Id');
+        
+        let acc=cmp.get('v.selectesRec.Account_Name__c');
+        let connm = cmp.get('v.selectedLookUpRecord.Name');
+        let accNameConcat =acc+'  '+'-'+'  '+ connm;
+        cmp.set('v.evtSubject',accNameConcat);
+        
+        if (eventsfields1 === undefined || eventsfields1 == "" || !eventsfields1)
+        {
+            return;
+        }
+        cmp.set('v.selectesRec', addNewVal);
+    },
+    
+    closeModal: function (cmp, event, helper)
+    {
+        cmp.set("v.openModal", false);
+        $A.get('e.force:refreshView').fire();
+    },
+    
+    doInit: function (component, event, helper)
+    {
+        let acc=component.get('v.selectesRec.Account_Name__c');
+        let accNameConcat =acc+ '  -';
+        component.set('v.evtSubject',accNameConcat);
+        
+        let now  = new Date();
+        component.set('v.evtStart', now.toISOString());
+        let nowend  = new Date();
+        nowend.setHours( nowend.getHours() + 1 );
+        component.set('v.evtend', nowend.toISOString());
+        let row = component.get('v.selectesRec');
+        /*
+     	* Available Datetime1 Split Code
+    	*/
+        if (row.Doc1_Available_Datetime__c != null)
+        {
+            let splitVal1 = row.Doc1_Available_Datetime__c.replaceAll(" ", "<br/>");
+            let splitVal01 = splitVal1.replace(/(<br\s*\/?>){2,}/gi, '<br>');
+            component.set("v.availDTP1Val", splitVal01);
+        }
+        /*
+     	* Available Datetime2 Split Code
+    	*/
+        if (row.Doc_2_Available_Datetime__c != null)
+        {
+            let splitVal2 = row.Doc_2_Available_Datetime__c.replaceAll(" ", "<br/>");
+            let splitVal01 = splitVal2.replace(/(<br\s*\/?>){2,}/gi, '<br>');
+            component.set("v.availDTP2Val", splitVal01);
+        }
+        helper.getPicklistValues(component, event);
+        helper.getTopicsValues(component, event);
+        helper.fetchPosAccounts(component);
+    },
+    
+    /*
+   	* handle other Topics covered multi-Picklist Selection on Event Popup Layout
+  	*/
+    handleGenreChange: function (component, event, helper)
+    {
+        let selectedValues = component.get("v.selectedGenreList");
+        component.set("v.selectedGenreList", selectedValues);
+    },
+    
+    /*
+   	* Event StartDateTime custom validation on Event Popup Layout
+ 	*/
+    StartdateUpdate: function (component, event, helper)
+    {
+        let today = new Date();
+        let dd = today.getDate();
+        let mm = today.getMonth() + 1;
+        let yyyy = today.getFullYear();
+        let srtvar =component.get('v.evtStart');
+        let srtvar1 = new Date(srtvar);
+        srtvar1.setHours( srtvar1.getHours() + 1 );
+        component.set('v.evtend', srtvar1.toISOString());
+        if (dd < 10)
+        {
+            dd = '0' + dd;
+        }
+        if (mm < 10)
+        {
+            mm = '0' + mm;
+        }
+        
+        let todayFormattedDate = yyyy + '-' + mm + '-' + dd;
+        if (component.get("v.evtStart") != '' && component.get("v.evtStart") < todayFormattedDate)
+        {
+            component.set("v.dateValidationError", true);
+        } 
+        else
+        {
+            component.set("v.dateValidationError", false);
+        }
+    },
+    
+    /*
+     * Event EndDateTime custom validation on Event Popup Layout
+    */
+    EnddateUpdate: function (component, event, helper)
+    {
+        let today = new Date();
+        let dd = today.getDate();
+        let mm = today.getMonth() + 1;
+        let yyyy = today.getFullYear();
+        if (dd < 10)
+        {
+            dd = '0' + dd;
+        }
+        if (mm < 10)
+        {
+            mm = '0' + mm;
+        }
+        let todayFormattedDate = yyyy + '-' + mm + '-' + dd;
+        if ((component.get("v.evtend") != '' && component.get("v.evtend") < todayFormattedDate) || component.get("v.evtend") <= component.get("v.evtStart"))
+        {
+            component.set("v.dateValidationError1", true);
+        } 
+        else
+        {
+            component.set("v.dateValidationError1", false);
+        }
+    }
+});
+**********************************
+({
+    getPicklistValues: function (component, event)
+    {
+        let action = component.get("c.getEventtypeFieldValue");
+        action.setCallback(this, function (response) {
+            let state = response.getState();
+            if (state === "SUCCESS")
+            {
+                let result = response.getReturnValue();
+                let fieldMap = [];
+                for (let key in result)
+                {
+                    if (result.hasOwnProperty(key))
+                    {
+                    	fieldMap.push({
+                        key: key,
+                        value: result[key]
+                    	});
+                    }
+                }
+                component.set("v.fieldMap", fieldMap);
+            } 
+            else if (state === "ERROR")
+            {
+                let errors = response.getError();
+                if (errors)
+                {
+                    $A.log("Errors", errors[0].message);
+                }
+            }
+        });
+        $A.enqueueAction(action);
+    },
+ 
+    fetchPosAccounts: function (component)
+    {
+        let action = component.get("c.getCallPlannerRec");
+        action.setParams({});
+        action.setCallback(this, function (response) {
+            let state = response.getState();
+            if (state === "SUCCESS")
+            {
+                let records = response.getReturnValue();
+                component.set("v.callPlannerList", response.getReturnValue());
+                records.forEach(function (record) {
+                    record['linkName'] = '/lightning/r/Account/' + record['AccountId__c'] + '/view';
+                });
+                for (let i = 0; i < records.length; i++)
+                {
+                    if (records[i].Call_Target_Meet__c == 1)
+                    {
+                        records[i].buttonColor = 'destructive';
+                    }
+                    else
+                    {
+                        records[i].buttonColor = 'destructive-text';
+                    }
+                }
+                component.set("v.callPlannerList", records);
+            } 
+            else if (state === "ERROR")
+            {
+                let errors = response.getError();
+                if (errors)
+                {
+                    $A.log("Errors", errors[0].message);
+                }
+            }
+        });
+        $A.enqueueAction(action);
+    },
+    
+    getTopicsValues: function (component, event, helper)
+    {
+        let action = component.get("c.getPiklistValues");
+        action.setCallback(this, function (response) {
+            let state = response.getState();
+            if (state === "SUCCESS")
+            {
+                let result = response.getReturnValue();
+                let plValues = [];
+                for (let i = 0; i < result.length; i++)
+                {
+                    plValues.push({
+                        label: result[i],
+                        value: result[i]
+                    });
+                }
+                component.set("v.GenreList", plValues);
+            } 
+            else if (state === "ERROR")
+            {
+                let errors = response.getError();
+                if (errors)
+                {
+                    $A.log("Errors", errors[0].message);
+                }
+            }
+        });
+        $A.enqueueAction(action);
+    },
+})
+*********************************
+ICallPlanDataService------------------------------->
+public interface ICallPlanDataService 
+{
+    List<Call_Plan_Data__c> getCallPlannerRec();
+    List<Call_Plan_Data__c> getCallPlannerNegativeRec();
+    Map<String, String> getEventtypeFieldValue();
+    List <String> getPiklistValues();
+    event insertEvt(string callPlanRec, string eventsub, datetime strtdate, datetime enddate, String eventtype, String topics,String Field2,String Anticipatedques,String salesTools,String Field3);
+    list<Event> getAllEvents();
+    List<Contact> fetchLookUpValues(String searchKeyWord, String ObjectName, String accountId);
+}
+*********************************
+CallPlanDataService----------------------------------->
+
+public with sharing class CallPlanDataService
+{
+	private CallPlanDataService()
+	{
+	}
+	public static List<Call_Plan_Data__c> getCallPlannerRec()
+	{
+		return service().getCallPlannerRec();
+	}
+	public static List<Call_Plan_Data__c> getCallPlannerNegativeRec()
+	{
+		return service().getCallPlannerNegativeRec();
+	}
+	public static Map<String, String> getEventtypeFieldValue()
+	{
+		return service().getEventtypeFieldValue();
+	}
+	public static List <String> getPiklistValues()
+	{
+		return service().getPiklistValues();
+	}
+	public static event insertEvt(string callPlanRec, string eventsub, datetime strtdate, datetime enddate, String eventtype, String topics,String Field2,String Anticipatedques,String salesTools,String Field3)
+	{
+		return service().insertEvt(callPlanRec, eventsub, strtdate, enddate, eventtype, topics,Field2,Anticipatedques,salesTools,Field3);
+	}
+	public static list<Event> getAllEvents()
+	{
+		return service().getAllEvents();
+	}
+	public static List<Contact> fetchLookUpValues(String searchKeyWord,String ObjectName, String accountId)
+	{
+		return service().fetchLookUpValues(searchKeyWord, ObjectName, accountId);
+	}
+
+	private static ICallPlanDataService service()
+	{
+		return (ICallPlanDataService) Application_CA.Service.newInstance(ICallPlanDataService.class);
+	}
+}
+***************************************
+CA_DatableClass------------------------------------>
+/*
+* @author : Urvashi Barapatre | APJ Call Automation FOR JAPAN
+* Class Name: CA_DatableClass
+* Created Date : 22-02-2022
+* Description: This class used in CA_PositiveDatable,CA_NegativeDatable components.
+* Copyright (c) 2021 Johnson & Johnson
+*/
+public with sharing class CA_DatableClass
+{
+	/**
+	 * gets vcode of users
+	 */
+	private CA_DatableClass()
+	{
+
+	}
+	public static Set<String> getVcodes(List<User> users)
+	{
+		Set<String> vcodes = new Set<String>();
+		for (User usr : users)
+		{
+			if (String.isBlank(usr.User_VCode__c))
+			{
+				vcodes.add(usr.User_VCode__c + '%');
+			}
+			else
+			{
+				vcodes.add(usr.User_VCode__c);
+			}
+		}
+		return vcodes;
+	}
+
+/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: list of Positive target type account in Positive datatable
+*/
+	@AuraEnabled
+	public static List<Call_Plan_Data__c> getCallPlannerRec()
+	{
+		try
+		{
+			return CallPlanDataService.getCallPlannerRec();
+		}
+		catch (Exception e)
+		{
+			throw new AuraHandledException(e.getMessage());
+		}
+	}
+	/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: list of Negative target type account in Negative datatable
+*/
+	@AuraEnabled
+	public static List<Call_Plan_Data__c> getCallPlannerNegativeRec()
+	{
+		try
+		{
+			return CallPlanDataService.getCallPlannerNegativeRec();
+		}
+		catch (Exception e)
+		{
+			throw new AuraHandledException(e.getMessage());
+		}
+	}
+
+/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: Event Type Picklist values in Event popup for Positive/Negative datatable
+*/
+	@AuraEnabled
+	public static Map<String, String> getEventtypeFieldValue()
+	{
+		try
+		{
+			return CallPlanDataService.getEventtypeFieldValue();
+		}
+		catch (Exception e)
+		{
+			throw new AuraHandledException(e.getMessage());
+		}
+	}
+
+/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: inserted Events in JNJ custom calendar
+*/
+	@AuraEnabled
+	public static event insertEvt(string callPlanRec, string eventsub, datetime strtdate, datetime enddate, String eventtype, String topics,String Field2,String Anticipatedques,String salesTools,String Field3)
+    {
+        try
+        {
+            return CallPlanDataService.insertEvt(callPlanRec, eventsub, strtdate, enddate, eventtype, topics,Field2,Anticipatedques,salesTools,Field3);
+        }
+        catch (Exception e)
+        {
+			throw new AuraHandledException(e.getMessage());
+		}
+	}
+
+/*
+* @author: Urvashi Barapatre | APJ Call Automation FOR JAPAN
+*
+* @date: 22-02-2022
+*
+* @return: Other Topics covered Multiselect Picklist in Event popup for Positive/Negative datatable
+*/
+	@AuraEnabled
+	public static List <String> getPiklistValues()
+	{
+		try
+		{
+			return CallPlanDataService.getPiklistValues();
+		}
+		catch (Exception e)
+		{
+			throw new AuraHandledException(e.getMessage());
+		}
+	}
+}
+**********************************************************
